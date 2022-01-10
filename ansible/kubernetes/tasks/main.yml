@@ -1,0 +1,47 @@
+###################################################
+## provisioning Kubernetes
+###################################################
+- name: modprobe br_netfilter
+  command: modprobe br_netfilter
+- sysctl:
+    name: net.bridge.bridge-nf-call-iptables
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+- name: check exisiting /etc/yum.repos.d/kubernetes.repo
+  stat:
+    path: "/etc/yum.repos.d/kubernetes.repo"
+  register: kubernetes_repo
+- name: install kubernetes.repo
+  template:
+    src: kubernetes.repo
+    dest: /etc/yum.repos.d/kubernetes.repo
+  when:
+    - kubernetes_repo.stat.exists == false
+- name: install kubelet kubeadm kubectl
+  yum:
+    name: "{{ packages }}"
+    state: present
+    disable_excludes: kubernetes
+  vars:
+    packages:
+    - kubelet-{{ k8s_version_centos }}
+    - kubeadm-{{ k8s_version_centos }}
+    - kubectl-{{ k8s_version_centos }}
+- name: enable kubelet
+  systemd:
+    name: kubelet
+    state: started
+    enabled: yes
+- name: change kubelet.service
+  replace:
+    dest: /etc/systemd/system/multi-user.target.wants/kubelet.service 
+    regexp: 'ExecStart=/usr/bin/kubelet'
+    replace: ExecStart=/usr/bin/kubelet --node-ip={{ ansible_facts.eth1.ipv4.address }} --cluster-dns={{ cluster_dns }}
+- name: daemon-reload and restart kubelet
+  systemd:
+    state: restarted
+    daemon_reload: yes
+    name: kubelet
+

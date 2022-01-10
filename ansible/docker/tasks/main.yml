@@ -1,0 +1,57 @@
+##################################################
+##  Docker CE のインストール
+##################################################
+- name: ensure a list of packages uninstalled
+  yum:
+    name: "{{ packages }}"
+    state: absent
+  vars:
+    packages:
+    - docker
+    - docker-client
+    - docker-client-latest
+    - docker-common
+    - docker-latest
+    - docker-latest-logrotate
+    - docker-logrotate
+    - docker-engine
+- name: Add Docker repository
+  shell: "yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo"
+  args:
+    chdir: "/etc/yum.repos.d"
+    creates: docker-ce.repo
+- name: ensure a list of packages installed
+  yum:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+    - docker-ce-{{ docker_version_centos }}
+    - containerd.io
+    - git
+- name: Create docker directory
+  file:
+    path: /etc/docker
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+- name: Add daemon.json
+  template:
+    src:  daemon.json
+    dest: /etc/docker/daemon.json
+    mode: 0600
+    owner: root
+    group: root
+- name: Add the user 'vagrant' with a specific uid and a primary group of 'docker'
+  user:
+    name: vagrant
+    comment: docker exection user
+    group: docker
+- name: Start dockerd
+  systemd:
+    name: docker
+    state: started
+    daemon_reload: yes
+    enabled: yes
+

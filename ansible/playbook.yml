@@ -1,0 +1,22 @@
+- name: Kubernetes provision common
+  hosts: all
+  gather_facts: true
+  become: true
+  roles:
+    - setup
+    - docker
+    - kubernetes
+
+- name: Kubernetes provision master
+  hosts: master
+  gather_facts: true
+  become: true
+  roles:
+    - master
+
+- name: Kubernetes provision workers
+  hosts: workers
+  gather_facts: true
+  become: true
+  roles:
+    - worker
