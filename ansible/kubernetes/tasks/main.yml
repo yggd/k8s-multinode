@@ -39,6 +39,9 @@
     dest: /etc/systemd/system/multi-user.target.wants/kubelet.service 
     regexp: 'ExecStart=/usr/bin/kubelet'
     replace: ExecStart=/usr/bin/kubelet --node-ip={{ ansible_facts.eth1.ipv4.address }} --cluster-dns={{ cluster_dns }}
+- name: add --node-ip for kubelet config
+  shell: |
+    echo KUBELET_EXTRA_ARGS=\"--node-ip=`ip addr show eth1 | grep inet | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}/" | tr -d '/'`\" > /etc/sysconfig/kubelet
 - name: daemon-reload and restart kubelet
   systemd:
     state: restarted
