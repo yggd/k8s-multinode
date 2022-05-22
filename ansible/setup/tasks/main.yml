@@ -37,14 +37,14 @@
     swapoff /dev/dm-1
     systemctl daemon-reload
 ##################################################
-## synchronizing NFS and locale settings
+## synchronizing NTP and locale settings
 ##################################################
-- name: delete default nfs server
+- name: delete default ntp server
   replace:
     dest: /etc/chrony.conf
     regexp: '^(server \d+.centos.pool.ntp.org iburst)'
     replace: '# \1'
-- name: add nict nfs server
+- name: add nict ntp server
   blockinfile:
     dest: /etc/chrony.conf
     state: present
