@@ -1,6 +1,6 @@
 # install version
 docker_version_centos: 20.10.9-3.el7
-k8s_version_centos: 1.23.1-0
+k8s_version_centos: 1.23.6-0
 
 # inner networks
 cluster_dns: 10.32.0.10
