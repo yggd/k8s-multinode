@@ -43,11 +43,24 @@
     mode: 0600
     owner: root
     group: root
+- name: comment out containerd disabled_plugins setting
+  lineinfile:
+    path: "/etc/containerd/config.toml"
+    state: "present"
+    backrefs: "yes"
+    regexp: '^(disabled_plugins.*)$'
+    line: '#\1'
 - name: Add the user 'vagrant' with a specific uid and a primary group of 'docker'
   user:
     name: vagrant
     comment: docker exection user
     group: docker
+- name: Start containerd
+  systemd:
+    name: containerd
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
 - name: Start dockerd
   systemd:
     name: docker

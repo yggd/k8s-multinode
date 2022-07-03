@@ -32,6 +32,13 @@
     name: firewalld
     state: stopped
     enabled: no
+- name: comment out swap fstab
+  lineinfile:
+    path: "/etc/fstab"
+    state: "present"
+    backrefs: "yes"
+    regexp: '^(.*swap.*)$'
+    line: '#\1'
 - name: turn off swap
   shell: |
     swapoff /dev/dm-1
