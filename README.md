@@ -36,7 +36,7 @@ masterノード1 + workerノード2でk8sクラスタが再現できる環境で
 あとぶっ壊したらもう一度作り直せばいいお手軽さ。
 
 * CentOS 7.9.2009 (VM のOS)
-* Kubernetes 1.23.1-0
+* Kubernetes 1.24.0-0
 * Flannel
 * Docker 20.10.9-3
 * Helm 3.7.2
@@ -86,12 +86,14 @@ metrics-server-895b75879-d68d5   1/1     Running   0          15m
 k8sのノードが全てREADYであること。
 
 ```bash
-$ kubectl get node
-NAME      STATUS   ROLES                  AGE   VERSION
-master    Ready    control-plane,master   51m   v1.23.1
-worker1   Ready    <none>                 44m   v1.23.1
-worker2   Ready    <none>                 37m   v1.23.1
+$ kubectl get node -o wide
+NAME      STATUS   ROLES           AGE   VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION                CONTAINER-RUNTIME
+master    Ready    control-plane   41d   v1.24.0   192.168.56.11   <none>        CentOS Linux 7 (Core)   3.10.0-1160.66.1.el7.x86_64   containerd://1.6.4
+worker1   Ready    <none>          41d   v1.24.0   192.168.56.12   <none>        CentOS Linux 7 (Core)   3.10.0-1160.66.1.el7.x86_64   containerd://1.6.4
+worker2   Ready    <none>          41d   v1.24.0   192.168.56.13   <none>        CentOS Linux 7 (Core)   3.10.0-1160.66.1.el7.x86_64   containerd://1.6.4
 ```
+
+**追記** k8s 1.24.0 よりコンテナラインタイムでdocker-shimのサポートが削除されたため、代わりにcontainerdを使用することになった。
 
 ## Future Releases(TODO)
 
