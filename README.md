@@ -6,15 +6,31 @@ masterノード1 + workerノード2でk8sクラスタが再現できる環境で
 
 ![network structure](img/k8s-multinode-network.png)
 
-ご利用の環境に合わせてIPアドレスを変えたい方は `Vagrantfile` の`vmlist` によるアドレス定義と`ansible/hosts` および `ansible/group_vars/all.yml` をお好みで変えて下さい。
+### カスタマイズポイント
+
+* ご利用の環境に合わせてIPアドレスを変えたい方は `Vagrantfile` の`vmlist` によるアドレス定義と`ansible/hosts` および `ansible/group_vars/all.yml` をお好みで変えて下さい。
+* k8s v1.28.2から、Vagrantの動作確認環境をMacからUbuntuに変えました。
+  これに伴い Vagrantfile でブリッジに紐づけるネットワークインタフェース名を以下のように変えていますので、 `ip a` コマンドなどから適宜ご利用のものに変えてください。
+
+```
+$ git diff Vagrantfile
+diff --git a/Vagrantfile b/Vagrantfile
+index 9d02403..370681e 100644
+--- a/Vagrantfile
++++ b/Vagrantfile
+@@ -1,5 +1,4 @@
+ box_os  = "generic/centos7"
+-network_br = "en0: Ethernet 1"
+ network_br = "enp87s0"
+```
 
 ## 必要なもの
 
 あらかじめ以下のツールを導入先ホストにインストールして下さい。
 
 * 物理マシン (後述)
-* Vagrant (2.2.19で確認)
-* Ansible (core 2.11.6で動作確認)
+* Vagrant (2.4.0で確認)
+* Ansible (core 2.15.8で動作確認)
 
 ## 物理マシン要件(最低)
 
@@ -36,7 +52,7 @@ masterノード1 + workerノード2でk8sクラスタが再現できる環境で
 あとぶっ壊したらもう一度作り直せばいいお手軽さ。
 
 * CentOS 7.9.2009 (VM のOS)
-* Kubernetes 1.24.0-0
+* Kubernetes 1.28.2-0
 * Flannel
 * Docker 20.10.9-3
 * Helm 3.7.2
@@ -68,39 +84,38 @@ k8sのシステム名前空間で動作しているPodが全てREADYであるこ
 ```bash
 $ kubectl get pods -n kube-system
 NAME                             READY   STATUS    RESTARTS   AGE
-coredns-64897985d-85mlv          1/1     Running   0          15m
-coredns-64897985d-djv78          1/1     Running   0          15m
-etcd-master                      1/1     Running   0          15m
-kube-apiserver-master            1/1     Running   0          15m
-kube-controller-manager-master   1/1     Running   0          15m
-kube-flannel-ds-amd64-8v8f5      1/1     Running   0          8m51s
-kube-flannel-ds-amd64-jrt58      1/1     Running   0          95s
-kube-flannel-ds-amd64-shj5l      1/1     Running   0          15m
-kube-proxy-5wpfx                 1/1     Running   0          8m51s
-kube-proxy-867qd                 1/1     Running   0          15m
-kube-proxy-xhhxz                 1/1     Running   0          95s
-kube-scheduler-master            1/1     Running   0          15m
-metrics-server-895b75879-d68d5   1/1     Running   0          15m
+coredns-5dd5756b68-26pp7         1/1     Running   0          10m
+coredns-5dd5756b68-nkln4         1/1     Running   0          10m
+etcd-master                      1/1     Running   0          10m
+kube-apiserver-master            1/1     Running   0          10m
+kube-controller-manager-master   1/1     Running   0          10m
+kube-proxy-m8cb9                 1/1     Running   0          5m45s
+kube-proxy-sfrl2                 1/1     Running   0          10m
+kube-proxy-stkzb                 1/1     Running   0          64s
+kube-scheduler-master            1/1     Running   0          10m
+metrics-server-7f7fd6cb-99vc4    1/1     Running   0          10m
 ```
 
 k8sのノードが全てREADYであること。
 
 ```bash
 $ kubectl get node -o wide
-NAME      STATUS   ROLES           AGE   VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION                CONTAINER-RUNTIME
-master    Ready    control-plane   41d   v1.24.0   192.168.56.11   <none>        CentOS Linux 7 (Core)   3.10.0-1160.66.1.el7.x86_64   containerd://1.6.4
-worker1   Ready    <none>          41d   v1.24.0   192.168.56.12   <none>        CentOS Linux 7 (Core)   3.10.0-1160.66.1.el7.x86_64   containerd://1.6.4
-worker2   Ready    <none>          41d   v1.24.0   192.168.56.13   <none>        CentOS Linux 7 (Core)   3.10.0-1160.66.1.el7.x86_64   containerd://1.6.4
+NAME      STATUS   ROLES           AGE   VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION                 CONTAINER-RUNTIME
+master    Ready    control-plane   29m   v1.28.2   192.168.56.11   <none>        CentOS Linux 7 (Core)   3.10.0-1160.105.1.el7.x86_64   containerd://1.6.26
+worker1   Ready    <none>          24m   v1.28.2   192.168.56.12   <none>        CentOS Linux 7 (Core)   3.10.0-1160.105.1.el7.x86_64   containerd://1.6.26
+worker2   Ready    <none>          19m   v1.28.2   192.168.56.13   <none>        CentOS Linux 7 (Core)   3.10.0-1160.105.1.el7.x86_64   containerd://1.6.26
 ```
 
 **追記** k8s 1.24.0 よりコンテナラインタイムでdocker-shimのサポートが削除されたため、代わりにcontainerdを使用することになった。
 
+
 ## Future Releases(TODO)
 
 気が向いたらやる。  
-ただ今はこれ以上マシンスペックが増やせない・・・
 
 * プライベートレジストリ
 * フロントエンド確認用のNGINX Ingress Controller
 * Rookなどの分散ストレージ
+* CentOSからUbuntuへ移行
+* FlannelからCalicoへ移行 
 
