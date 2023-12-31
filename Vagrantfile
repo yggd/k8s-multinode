@@ -1,5 +1,5 @@
 box_os  = "generic/centos7"
-network_br = "en0: Ethernet 1"
+network_br = "enp87s0"
 
 vmlist = [
   { name: "master",
