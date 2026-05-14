@@ -1,50 +1,69 @@
 ###################################################
-## provisioning Kubernetes
+## Kubernetes インストール (pkgs.k8s.io apt リポジトリ)
 ###################################################
-- name: modprobe br_netfilter
-  command: modprobe br_netfilter
-- sysctl:
-    name: net.bridge.bridge-nf-call-iptables
-    value: '1'
-    sysctl_set: yes
+- name: install Kubernetes apt prerequisites
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
     state: present
-    reload: yes
-- name: check exisiting /etc/yum.repos.d/kubernetes.repo
-  stat:
-    path: "/etc/yum.repos.d/kubernetes.repo"
-  register: kubernetes_repo
-- name: install kubernetes.repo
-  template:
-    src: kubernetes.repo
-    dest: /etc/yum.repos.d/kubernetes.repo
-  when:
-    - kubernetes_repo.stat.exists == false
+
+- name: create /etc/apt/keyrings
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: add Kubernetes GPG key
+  shell: |
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ k8s_minor_version }}/deb/Release.key \
+      | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: add Kubernetes apt repository
+  apt_repository:
+    repo: >-
+      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg]
+      https://pkgs.k8s.io/core:/stable:/v{{ k8s_minor_version }}/deb/ /
+    state: present
+    filename: kubernetes
+
 - name: install kubelet kubeadm kubectl
-  yum:
-    name: "{{ packages }}"
+  apt:
+    name:
+      - kubelet={{ k8s_version }}
+      - kubeadm={{ k8s_version }}
+      - kubectl={{ k8s_version }}
+    update_cache: yes
     state: present
-    disable_excludes: kubernetes
-  vars:
-    packages:
-    - kubelet-{{ k8s_version_centos }}
-    - kubeadm-{{ k8s_version_centos }}
-    - kubectl-{{ k8s_version_centos }}
+
+- name: hold kubelet kubeadm kubectl at current version
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
+
 - name: enable kubelet
   systemd:
     name: kubelet
     state: started
     enabled: yes
-- name: change kubelet.service
-  replace:
-    dest: /etc/systemd/system/multi-user.target.wants/kubelet.service 
-    regexp: 'ExecStart=/usr/bin/kubelet'
-    replace: ExecStart=/usr/bin/kubelet --node-ip={{ ansible_facts.eth1.ipv4.address }} --cluster-dns={{ cluster_dns }}
-- name: add --node-ip for kubelet config
-  shell: |
-    echo KUBELET_EXTRA_ARGS=\"--node-ip=`ip addr show eth1 | grep inet | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}/" | tr -d '/'`\" > /etc/sysconfig/kubelet
+
+- name: set KUBELET_EXTRA_ARGS (node-ip)
+  copy:
+    dest: /etc/default/kubelet
+    content: |
+      KUBELET_EXTRA_ARGS="--node-ip={{ ansible_facts[k8s_node_iface].ipv4.address }}"
+    mode: '0644'
+
 - name: daemon-reload and restart kubelet
   systemd:
+    name: kubelet
     state: restarted
     daemon_reload: yes
-    name: kubelet
-

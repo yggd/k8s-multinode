@@ -1,19 +1,20 @@
-- name: reset kubeadm
-  command: kubeadm reset -f
-- name: include kubeadm join variables
+- name: kubeadm reset
+  command: kubeadm reset -f --cri-socket unix:///var/run/containerd/containerd.sock
+
+- name: load kubeadm join variables
   include_vars: ./kubeadm-join.yaml
+
 - name: kubeadm join
-  command: "{{ join_command }}"
-- name: change DNS IP setting
+  command: "{{ join_command }} --cri-socket unix:///var/run/containerd/containerd.sock"
+
+- name: update cluster DNS in kubelet config
   replace:
     dest: /var/lib/kubelet/config.yaml
     regexp: '10.96.0.10'
     replace: "{{ cluster_dns }}"
-- name: add --node-ip for kubelet config
-  shell: |
-    echo KUBELET_EXTRA_ARGS=\"--node-ip=`ip addr show eth1 | grep inet | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}/" | tr -d '/'`\" > /etc/sysconfig/kubelet
+
 - name: restart kubelet
   systemd:
+    name: kubelet
     state: restarted
     daemon_reload: yes
-    name: kubelet

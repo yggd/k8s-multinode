@@ -1,7 +1,13 @@
 - name: Kubernetes provision common
   hosts: all
-  gather_facts: true
+  gather_facts: false
   become: true
+  pre_tasks:
+    - name: install Python3 (required by Ansible)
+      raw: /usr/bin/apt-get install -y python3
+      changed_when: false
+    - name: gather facts
+      setup:
   roles:
     - setup
     - docker

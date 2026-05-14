@@ -1,6 +1,13 @@
-# install version
-docker_version_centos: 20.10.16-3.el7
-k8s_version_centos: 1.28.2-0
+# Kubernetes version
+# pkgs.k8s.io のリポジトリURLに使用するマイナーバージョン
+k8s_minor_version: "1.36"
+# apt パッケージバージョン（apt-cache madison kubelet で最新版を確認）
+k8s_version: "1.36.1-1.1"
+
+# Network interface
+# VirtualBox + ubuntu/jammy64 の場合、プライベートネットワーク（2枚目NIC）は enp0s8
+flannel_iface: "enp0s8"
+k8s_node_iface: "enp0s8"
 
 # inner networks
 cluster_dns: 10.32.0.10

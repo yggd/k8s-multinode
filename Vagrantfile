@@ -1,4 +1,4 @@
-box_os  = "generic/centos7"
+box_os  = "ubuntu/jammy64"
 network_br = "enp87s0"
 
 vmlist = [

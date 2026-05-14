@@ -1,70 +1,103 @@
 ##################################################
-##  Docker CE のインストール
+## Docker CE インストール
 ##################################################
-- name: ensure a list of packages uninstalled
-  yum:
-    name: "{{ packages }}"
+- name: remove old Docker packages
+  apt:
+    name:
+      - docker
+      - docker-engine
+      - docker.io
+      - containerd
+      - runc
     state: absent
-  vars:
-    packages:
-    - docker
-    - docker-client
-    - docker-client-latest
-    - docker-common
-    - docker-latest
-    - docker-latest-logrotate
-    - docker-logrotate
-    - docker-engine
-- name: Add Docker repository
-  shell: "yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo"
-  args:
-    chdir: "/etc/yum.repos.d"
-    creates: docker-ce.repo
-- name: ensure a list of packages installed
-  yum:
-    name: "{{ packages }}"
+
+- name: install Docker prerequisites
+  apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
     state: present
-  vars:
-    packages:
-    - docker-ce-{{ docker_version_centos }}
-    - containerd.io
-    - git
-- name: Create docker directory
+
+- name: create /etc/apt/keyrings
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: add Docker GPG key
+  shell: |
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+      | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+  args:
+    creates: /etc/apt/keyrings/docker.gpg
+
+- name: add Docker apt repository
+  apt_repository:
+    repo: >-
+      deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg]
+      https://download.docker.com/linux/ubuntu
+      {{ ansible_distribution_release }} stable
+    state: present
+    filename: docker
+
+- name: install Docker CE and containerd
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    update_cache: yes
+    state: present
+
+##################################################
+## containerd 設定 (SystemdCgroup を有効化)
+##################################################
+- name: generate default containerd config
+  shell: containerd config default > /etc/containerd/config.toml
+
+- name: enable SystemdCgroup in containerd config
+  replace:
+    path: /etc/containerd/config.toml
+    regexp: 'SystemdCgroup = false'
+    replace: 'SystemdCgroup = true'
+
+##################################################
+## Docker daemon 設定
+##################################################
+- name: create /etc/docker directory
   file:
     path: /etc/docker
     state: directory
-    mode: 0755
+    mode: '0755'
     owner: root
     group: root
-- name: Add daemon.json
+
+- name: deploy daemon.json
   template:
-    src:  daemon.json
+    src: daemon.json
     dest: /etc/docker/daemon.json
-    mode: 0600
+    mode: '0600'
     owner: root
     group: root
-- name: comment out containerd disabled_plugins setting
-  lineinfile:
-    path: "/etc/containerd/config.toml"
-    state: "present"
-    backrefs: "yes"
-    regexp: '^(disabled_plugins.*)$'
-    line: '#\1'
-- name: Add the user 'vagrant' with a specific uid and a primary group of 'docker'
+
+- name: add vagrant to docker group
   user:
     name: vagrant
-    comment: docker exection user
-    group: docker
-- name: Start containerd
+    groups: docker
+    append: yes
+
+- name: start and enable containerd
   systemd:
     name: containerd
     state: restarted
     daemon_reload: yes
     enabled: yes
-- name: Start dockerd
+
+- name: start and enable docker
   systemd:
     name: docker
     state: started
     daemon_reload: yes
     enabled: yes
-
