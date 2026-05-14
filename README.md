@@ -8,39 +8,31 @@ masterノード1 + workerノード2でk8sクラスタが再現できる環境で
 
 ### カスタマイズポイント
 
-* ご利用の環境に合わせてIPアドレスを変えたい方は `Vagrantfile` の`vmlist` によるアドレス定義と`ansible/hosts` および `ansible/group_vars/all.yml` をお好みで変えて下さい。
-* k8s v1.28.2から、Vagrantの動作確認環境をMacからUbuntuに変えました。
-  これに伴い Vagrantfile でブリッジに紐づけるネットワークインタフェース名を以下のように変えていますので、 `ip a` コマンドなどから適宜ご利用のものに変えてください。
-
-```
-$ git diff Vagrantfile
-diff --git a/Vagrantfile b/Vagrantfile
-index 9d02403..370681e 100644
---- a/Vagrantfile
-+++ b/Vagrantfile
-@@ -1,5 +1,4 @@
- box_os  = "generic/centos7"
--network_br = "en0: Ethernet 1"
- network_br = "enp87s0"
-```
+* IPアドレスを変更したい場合は `Vagrantfile` の `vmlist` と `ansible/hosts` および `ansible/group_vars/all.yml` を編集してください。
+* ブリッジに紐づけるネットワークインタフェース名は `Vagrantfile` の `network_br` で指定しています。  
+  `ip a` コマンドなどでご利用の環境のインタフェース名を確認し、適宜変更してください。
+* Kubernetes / Docker のバージョンは `ansible/group_vars/all.yml` で管理しています。
+* VirtualBox + `ubuntu/jammy64` では、プライベートネットワーク側の NIC は `enp0s8` になります。  
+  異なるボックスを使用する場合は `k8s_node_iface` および `flannel_iface` を変更してください。
 
 ## 必要なもの
 
 あらかじめ以下のツールを導入先ホストにインストールして下さい。
 
 * 物理マシン (後述)
-* Vagrant (2.4.0で確認)
-* Ansible (core 2.15.8で動作確認)
+* Vagrant (2.4.0 以降)
+* Ansible (core 2.15 以降)
+* VirtualBox
 
 ## 物理マシン要件(最低)
 
-* CPU: 6コア(1VMが2コア× 3VM もちろん仮想化技術に対応しているもの。Mなんちゃらとかはダメ)
-* メモリ: 6GB (1VMが2GB × 3VM 正直余裕ない)
-* ストレージ: 60GB (以下略)
+* CPU: 6コア(1VMが2コア × 3VM。仮想化技術に対応しているもの)
+* メモリ: 6GB (1VMが2GB × 3VM)
+* ストレージ: 60GB
 
 上記はkubeadmの[導入要件](https://kubernetes.io/ja/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)によるものです。  
-もっといいスペックをお持ちのお金持ちの皆さんでスペックが許す限りworkerノードを増やしたい場合はVagrantfileとansible/hostsに加筆修正して下さい。  
-なんだか面倒くさそうな方やいじって壊して直すことに面白みを感じない方、物理マシンが調達不能なほど貧乏な方はGKE, AKS, EKSといったクラウドサービスの無料枠を使って下さい。あるいはk3s, k3dなど軽量なk8sを使ってみるのもいいかもしれません。
+スペックが許す限りworkerノードを増やしたい場合は `Vagrantfile` と `ansible/hosts` に加筆修正してください。  
+物理マシンが用意できない場合は GKE, AKS, EKS などのクラウドサービスや k3s, k3d などの軽量 k8s もご検討ください。
 
 ## モチベーション
 
@@ -48,74 +40,97 @@ index 9d02403..370681e 100644
 
 ## インストールされるもの
 
-常に最新版のk8sが導入可能なのが強み。  
-あとぶっ壊したらもう一度作り直せばいいお手軽さ。
-
-* CentOS 7.9.2009 (VM のOS)
-* Kubernetes 1.28.2-0
-* Flannel
-* Docker 20.10.9-3
-* Helm 3.7.2
+* Ubuntu 22.04 LTS (ubuntu/jammy64)
+* Kubernetes 1.36.x (kubeadm / kubelet / kubectl)
+* Flannel (CNI)
+* Docker CE (最新版)
+* containerd (Docker CE に同梱)
+* Helm 3 (最新版)
+* Metrics Server (最新版)
 
 ## インストール
 
-Vagrant, Ansibleをインストールしたホストから、本リポジトリのルートディレクトリに移動し、
+Vagrant, Ansible, VirtualBox をインストールしたホストから、本リポジトリのルートディレクトリに移動し、
 
 ```bash
-$ vagrant up
+vagrant up
 ```
 
 以上。  
-出来上がるまでなんの面白みの無い画面を眺めたりカップ麺にお湯を入れに行くなりしてしばらくお待ちください。
+出来上がるまでなんの面白みのない画面を眺めたり、カップ麺にお湯を入れに行くなりしてしばらくお待ちください。
 
 インストールが終わったら、
 
 ```bash
-$ vagrant ssh master
+vagrant ssh master
 ```
 
 で `kubectl` が叩けるマスターノードにログインできます。  
-ホストから `kubectl` を使いたい場合はmasterノードのホームディレクトリの`.kube/config` をホストに持ってくるなどして使って下さい。(masterノードの接続先のIPアドレスはパブリックIPアドレスを使用して下さい。)
+ホストから `kubectl` を使いたい場合は master ノードのホームディレクトリの `.kube/config` をホストに持ってくるなどして使って下さい。  
+（接続先の IP アドレスはパブリック IP アドレスを使用してください。）
 
 ## 動作確認
 
-k8sのシステム名前空間で動作しているPodが全てREADYであること。
+k8s のシステム名前空間で動作している Pod が全て READY であること。
 
 ```bash
 $ kubectl get pods -n kube-system
 NAME                             READY   STATUS    RESTARTS   AGE
-coredns-5dd5756b68-26pp7         1/1     Running   0          10m
-coredns-5dd5756b68-nkln4         1/1     Running   0          10m
+coredns-xxxxxxxxxx-xxxxx         1/1     Running   0          10m
+coredns-xxxxxxxxxx-xxxxx         1/1     Running   0          10m
 etcd-master                      1/1     Running   0          10m
 kube-apiserver-master            1/1     Running   0          10m
 kube-controller-manager-master   1/1     Running   0          10m
-kube-proxy-m8cb9                 1/1     Running   0          5m45s
-kube-proxy-sfrl2                 1/1     Running   0          10m
-kube-proxy-stkzb                 1/1     Running   0          64s
+kube-proxy-xxxxx                 1/1     Running   0          5m
+kube-proxy-xxxxx                 1/1     Running   0          10m
+kube-proxy-xxxxx                 1/1     Running   0          64s
 kube-scheduler-master            1/1     Running   0          10m
-metrics-server-7f7fd6cb-99vc4    1/1     Running   0          10m
+metrics-server-xxxxxxxxxx-xxxxx  1/1     Running   0          10m
 ```
 
-k8sのノードが全てREADYであること。
+k8s のノードが全て READY であること。
 
 ```bash
 $ kubectl get node -o wide
-NAME      STATUS   ROLES           AGE   VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION                 CONTAINER-RUNTIME
-master    Ready    control-plane   29m   v1.28.2   192.168.56.11   <none>        CentOS Linux 7 (Core)   3.10.0-1160.105.1.el7.x86_64   containerd://1.6.26
-worker1   Ready    <none>          24m   v1.28.2   192.168.56.12   <none>        CentOS Linux 7 (Core)   3.10.0-1160.105.1.el7.x86_64   containerd://1.6.26
-worker2   Ready    <none>          19m   v1.28.2   192.168.56.13   <none>        CentOS Linux 7 (Core)   3.10.0-1160.105.1.el7.x86_64   containerd://1.6.26
+NAME      STATUS   ROLES           AGE   VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION   CONTAINER-RUNTIME
+master    Ready    control-plane   29m   v1.36.x   192.168.56.11   <none>        Ubuntu 22.04.x LTS   5.15.x-generic   containerd://x.x.x
+worker1   Ready    <none>          24m   v1.36.x   192.168.56.12   <none>        Ubuntu 22.04.x LTS   5.15.x-generic   containerd://x.x.x
+worker2   Ready    <none>          19m   v1.36.x   192.168.56.13   <none>        Ubuntu 22.04.x LTS   5.15.x-generic   containerd://x.x.x
 ```
 
-**追記** k8s 1.24.0 よりコンテナラインタイムでdocker-shimのサポートが削除されたため、代わりにcontainerdを使用することになった。
+## Kubernetes Dashboard (手動インストール)
 
+Dashboard はリポジトリ URL が変動しやすいため、プロビジョニングには含めていません。  
+[公式リポジトリ](https://github.com/kubernetes/dashboard) を参照し、最新の手順でインストールしてください。
 
-## Future Releases(TODO)
+```bash
+# Helm を使った導入例 (URLは変更される場合があります)
+helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --create-namespace --namespace kubernetes-dashboard
+```
 
-気が向いたらやる。  
+## Future Releases (TODO)
+
+気が向いたらやる。
 
 * プライベートレジストリ
-* フロントエンド確認用のNGINX Ingress Controller
-* Rookなどの分散ストレージ
-* CentOSからUbuntuへ移行
-* FlannelからCalicoへ移行 
+* フロントエンド確認用の NGINX Ingress Controller
+* Rook などの分散ストレージ
+* Flannel から Calico へ移行
 
+---
+
+## 更新履歴
+
+| 日付 | バージョン | 変更内容 |
+|------|-----------|---------|
+| 2026-05-15 | k8s 1.36.1 | Kubernetes を 1.36.1 に更新 |
+| 2026-05-15 | - | CentOS 7 → Ubuntu 22.04 LTS (ubuntu/jammy64) に移行 |
+| 2026-05-15 | - | Kubernetes apt リポジトリを旧 Google リポジトリから pkgs.k8s.io に移行 |
+| 2026-05-15 | - | Docker CE インストールを yum から apt に移行 |
+| 2026-05-15 | - | containerd に SystemdCgroup 設定を追加 (k8s 1.24+ 対応) |
+| 2026-05-15 | - | kubelet 設定を `/etc/sysconfig/kubelet` から `/etc/default/kubelet` に移行 |
+| 2026-05-15 | - | Dashboard を Helm v3.x 対応に変更 (URL 変動のため手動インストールに移行) |
+| 2026-05-15 | - | Flannel の `--iface` を変数 (`flannel_iface`) に変更 |
+| 2024-xx-xx | k8s 1.28.2 | 動作確認環境を Mac から Ubuntu に変更、ブリッジ IF 名を `enp87s0` に変更 |
